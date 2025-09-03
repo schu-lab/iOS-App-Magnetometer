@@ -1,10 +1,3 @@
-//
-//  ContentView.swift
-//  Magnetometer Toolkit
-//
-//  Refactor: portrait-first UI, equal cards, and Field Components box
-//
-
 import SwiftUI
 
 struct ContentView: View {
@@ -27,7 +20,7 @@ struct ContentView: View {
                                     .stroke(.secondary.opacity(0.4), lineWidth: 0.5)
                             )
 
-                        Text("Magnetometer Toolkit")
+                        Text("Mag Toolbox")
                             .monoTitle()
                     }
                     Spacer()
@@ -47,42 +40,47 @@ struct ContentView: View {
                 .mono10()
                 .padding(.horizontal, 2)
 
-                // ===== Field Visualizer =====
+                // ===== Field Visualizer (circles unchanged; telemetry at bottom) =====
                 MagVisualizer(x: mag.magX, y: mag.magY, z: mag.magZ, totalMag: mag.magnitude)
                     .mono10()
                     .padding()
+                    // Frame first, then background to keep visual width fixed
+                    .frame(maxWidth: .infinity)
                     .modifier(CardBackground())
 
-                // ===== Field Strength + Compass (equal size) =====
+                // ===== Field Strength + Compass (same width & larger size) =====
                 HStack(alignment: .center, spacing: 16) {
 
                     // Field Strength card
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Field Strength").fontWeight(.semibold)
                         Text(String(format: "%.1f µT", mag.magnitude))
-                            .font(.system(size: 28, weight: .bold, design: .monospaced))
+                            .font(.system(size: 30, weight: .bold, design: .monospaced))
                         Text("Active: \(mag.activeMode.rawValue)")
                             .foregroundStyle(.secondary)
                             .font(.caption)
                     }
                     .mono10()
                     .padding()
+                    // Fix card’s visual size before adding background (prevents width jitter)
+                    .frame(maxWidth: .infinity, minHeight: 220)
                     .modifier(CardBackground())
-                    .frame(maxWidth: .infinity, minHeight: 160)
 
-                    // Compass card
-                    VStack(alignment: .leading, spacing: 8) {
+                    // Compass card — fixed visual width; Direction + Bearing below
+                    VStack(alignment: .leading, spacing: 10) {
                         ZStack {
                             Circle().stroke(.secondary.opacity(0.3), lineWidth: 1)
                             Image(systemName: "location.north.line.fill")
                                 .rotationEffect(.degrees(-mag.magneticHeading))
-                                .font(.system(size: 28, weight: .bold))
+                                .font(.system(size: 32, weight: .bold))
                         }
-                        .frame(width: 72, height: 72)
+                        .frame(width: 84, height: 84)
 
                         let deg = mag.trueHeading ?? mag.magneticHeading
                         Text(directionLine(degrees: deg, label: mag.trueHeading != nil ? "True" : "Mag"))
                             .fontWeight(.semibold)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
 
                         if mag.headingAccuracy > 0 {
                             Text(String(format: "± %.0f°", mag.headingAccuracy))
@@ -91,23 +89,29 @@ struct ContentView: View {
                     }
                     .mono10()
                     .padding()
+                    // Fix card’s visual size before adding background (prevents width jitter)
+                    .frame(maxWidth: .infinity, minHeight: 220)
                     .modifier(CardBackground())
-                    .frame(maxWidth: .infinity, minHeight: 160)
                 }
 
-                // ===== Field Components box (like your screenshot) =====
+                // ===== Field Components (µT) =====
                 FieldComponentsBox(
                     x: mag.magX,
                     y: mag.magY,
                     z: mag.magZ,
                     total: mag.magnitude
                 )
+
+                // ===== Hint Cards =====
+                HintCards()
+                    .mono10()
+                    .padding(.top, 4)
             }
             .padding(16)
         }
         .onAppear {
             mag.start()
-            mag.applyMode(mag.mode) // ensure stream matches picker on appear
+            mag.applyMode(mag.mode)
         }
         .onDisappear { mag.stop() }
         .onChange(of: mag.mode) { newMode in
@@ -117,13 +121,13 @@ struct ContentView: View {
     }
 
     // MARK: - Helpers
-
     private func directionLine(degrees: Double, label: String) -> String {
         let d = fmod(degrees + 360, 360)
         let dirs = ["N","NNE","NE","ENE","E","ESE","SE","SSE",
                     "S","SSW","SW","WSW","W","WNW","NW","NNW"]
         let idx = Int((d/22.5).rounded()) % dirs.count
-        return String(format: "%@ Heading: %03.0f° %@", label, d, dirs[idx])
+        // Keep a compact line; remove “Heading:” to avoid width changes
+        return String(format: "%@ %@ (%03.0f°)", label, dirs[idx], d)
     }
 }
 
@@ -143,14 +147,13 @@ private struct CardBackground: ViewModifier {
     }
 }
 
-// ===== Visualizer View (auto-range; no slider) =====
+// ===== Visualizer View (auto-range; UI output at bottom) =====
 private struct MagVisualizer: View {
     let x: Double
     let y: Double
     let z: Double
     let totalMag: Double
 
-    // dynamic max µT mapped to the outer ring; adapts smoothly
     @State private var scaleMax: Double = 80.0
 
     var body: some View {
@@ -158,12 +161,12 @@ private struct MagVisualizer: View {
             Text("Field Visualizer").fontWeight(.semibold)
 
             GeometryReader { geo in
-                let size   = min(geo.size.width, 220)
+                let size   = min(geo.size.width, 200)   // slight shrink for spacing
                 let radius = size * 0.42
                 let xyMag  = magnitudeXY
 
                 ZStack {
-                    // Concentric rings
+                    // Concentric rings (same locations)
                     ForEach(1..<5) { i in
                         Circle()
                             .stroke(.secondary.opacity(i == 4 ? 0.35 : 0.18), lineWidth: i == 4 ? 1.2 : 0.8)
@@ -183,26 +186,27 @@ private struct MagVisualizer: View {
                     // XY arrow
                     Arrow(
                         start: CGPoint(x: geo.size.width/2, y: geo.size.height/2),
-                        angle: atan2(y, x),               // radians
+                        angle: atan2(y, x),
                         length: CGFloat(min(xyMag, scaleMax) / scaleMax) * radius
                     )
                     .stroke(.primary, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-
-                    // Labels
+                }
+                // Telemetry at the BOTTOM: XY, Z, Total
+                .overlay(alignment: .bottom) {
                     VStack(spacing: 2) {
                         Text(String(format: "XY: %.1f µT", xyMag))
                         Text(String(format: "Z: %+.1f µT", z))
                         Text(String(format: "Total: %.1f µT", totalMag))
                     }
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                    .offset(y: radius + 18)
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .padding(.top, 6)
+                    .padding(.bottom, 4)
                 }
                 .frame(height: size)
                 .frame(maxWidth: .infinity)
             }
-            .frame(height: 230)
+            .frame(height: 200)
         }
-        // auto-range: gently follow the largest component seen
         .onChange(of: totalMag) { _ in updateScale() }
         .onChange(of: x) { _ in updateScale() }
         .onChange(of: y) { _ in updateScale() }
@@ -212,7 +216,6 @@ private struct MagVisualizer: View {
     private var magnitudeXY: Double { sqrt(x*x + y*y) }
 
     private func updateScale() {
-        // Candidate scale = 1.3x of the biggest component; clamp 20…200 µT
         let biggest = max(magnitudeXY, abs(z), totalMag)
         let candidate = min(200.0, max(20.0, biggest * 1.3))
         // Smooth follow (EMA)
@@ -238,7 +241,7 @@ private struct Arrow: Shape {
         local.addLine(to: CGPoint(x: 6, y: -length + 10))
 
         let transform = CGAffineTransform(translationX: start.x, y: start.y)
-            .rotated(by: angle - .pi/2) // make 0 rad point to +X; we want +Y
+            .rotated(by: angle - .pi/2)
         p.addPath(local.applying(transform))
         return p
     }
@@ -276,7 +279,7 @@ private struct AxesBadge: View {
                     .foregroundColor(.green)
                     .position(x: c.x, y: c.y - L - 8)
 
-                // Z (blue, dot)
+                // Z (blue, dot at origin)
                 Circle()
                     .fill(Color.blue)
                     .frame(width: 6, height: 6)
@@ -328,6 +331,7 @@ private struct FieldComponentsBox: View {
         }
         .mono10()
         .padding()
+        .frame(maxWidth: .infinity)
         .modifier(CardBackground())
     }
 
@@ -347,7 +351,7 @@ private struct FieldComponentsBox: View {
         }
     }
 
-    // Center-zero bar with thin middle hairline (fixed)
+    // Center-zero bar with thin middle hairline
     private func bar(value: Double) -> some View {
         let clamped = max(-span, min(span, value))
         let frac    = CGFloat(abs(clamped) / span)
@@ -368,7 +372,7 @@ private struct FieldComponentsBox: View {
                 RoundedRectangle(cornerRadius: 5)
                     .fill(colorFor(uT: value).opacity(0.85))
                     .frame(width: w, height: H)
-                    .position(x: startX + w/2, y: H/2) // correct anchor
+                    .position(x: startX + w/2, y: H/2)
             }
             .clipped()
 
@@ -387,4 +391,59 @@ private func colorFor(uT: Double) -> Color {
     if v >= 1000 { return .red }
     if v >= 100  { return .orange }
     return .primary
+}
+
+// ===== Hint Cards =====
+private struct HintCards: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Hints").fontWeight(.semibold)
+
+            // Calibrated vs Raw
+            DisclosureGroup("▸ Calibrated vs Raw") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("• Calibrated uses Core Motion’s fused magnetic field with bias correction (helps remove hard/soft iron).")
+                    Text("• Raw uses the magnetometer directly; values include local interference from the device and environment.")
+                    Text("• Expect Raw to be noisier and higher magnitude near metal/electronics; Calibrated is generally steadier.")
+                }
+                .padding(.top, 4)
+            }
+            .tint(.secondary)
+
+            // Magnetometer functionality
+            DisclosureGroup("▸ How the magnetometer works") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("• The sensor measures the 3-axis field vector (X, Y, Z) in microtesla (µT).")
+                    Text("• Total strength |B| = √(X² + Y² + Z²).")
+                    Text("• Heading uses both magnetometer and other sensors; accuracy can drop indoors or near ferrous objects.")
+                }
+                .padding(.top, 4)
+            }
+            .tint(.secondary)
+
+            // Calibration tips
+            DisclosureGroup("▸ Calibration tips") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("• Slowly move the phone in a figure-8 and rotate through different orientations.")
+                    Text("• Keep distance from magnets, speakers, cables, and large metal surfaces.")
+                    Text("• If accuracy degrades, re-calibrate and avoid cases with magnetic latches.")
+                }
+                .padding(.top, 4)
+            }
+            .tint(.secondary)
+
+            // Units & thresholds
+            DisclosureGroup("▸ Units & thresholds") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("• Display is in microtesla (µT). Typical Earth field is ~25–65 µT depending on location.")
+                    Text("• In this app: ≥100 µT shows orange, ≥1000 µT shows red as a high field indicator.")
+                }
+                .padding(.top, 4)
+            }
+            .tint(.secondary)
+        }
+        .padding()
+        .frame(maxWidth: .infinity)
+        .modifier(CardBackground())
+    }
 }

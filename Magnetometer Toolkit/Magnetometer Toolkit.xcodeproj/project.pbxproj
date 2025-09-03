@@ -24,7 +24,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		919DBFD72E67C10F00F34246 /* Magnetometer Toolkit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Magnetometer Toolkit.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		919DBFD72E67C10F00F34246 /* Mag Toolkit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Mag Toolkit.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		919DBFE42E67C11100F34246 /* Magnetometer ToolkitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Magnetometer ToolkitTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		919DBFEE2E67C11100F34246 /* Magnetometer ToolkitUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Magnetometer ToolkitUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -85,7 +85,7 @@
 		919DBFD82E67C10F00F34246 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				919DBFD72E67C10F00F34246 /* Magnetometer Toolkit.app */,
+				919DBFD72E67C10F00F34246 /* Mag Toolkit.app */,
 				919DBFE42E67C11100F34246 /* Magnetometer ToolkitTests.xctest */,
 				919DBFEE2E67C11100F34246 /* Magnetometer ToolkitUITests.xctest */,
 			);
@@ -95,9 +95,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		919DBFD62E67C10F00F34246 /* Magnetometer Toolkit */ = {
+		919DBFD62E67C10F00F34246 /* Mag Toolkit */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 919DBFF82E67C11100F34246 /* Build configuration list for PBXNativeTarget "Magnetometer Toolkit" */;
+			buildConfigurationList = 919DBFF82E67C11100F34246 /* Build configuration list for PBXNativeTarget "Mag Toolkit" */;
 			buildPhases = (
 				919DBFD32E67C10F00F34246 /* Sources */,
 				919DBFD42E67C10F00F34246 /* Frameworks */,
@@ -110,11 +110,11 @@
 			fileSystemSynchronizedGroups = (
 				919DBFD92E67C10F00F34246 /* Magnetometer Toolkit */,
 			);
-			name = "Magnetometer Toolkit";
+			name = "Mag Toolkit";
 			packageProductDependencies = (
 			);
 			productName = "Magnetometer Toolkit";
-			productReference = 919DBFD72E67C10F00F34246 /* Magnetometer Toolkit.app */;
+			productReference = 919DBFD72E67C10F00F34246 /* Mag Toolkit.app */;
 			productType = "com.apple.product-type.application";
 		};
 		919DBFE32E67C11100F34246 /* Magnetometer ToolkitTests */ = {
@@ -200,7 +200,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				919DBFD62E67C10F00F34246 /* Magnetometer Toolkit */,
+				919DBFD62E67C10F00F34246 /* Mag Toolkit */,
 				919DBFE32E67C11100F34246 /* Magnetometer ToolkitTests */,
 				919DBFED2E67C11100F34246 /* Magnetometer ToolkitUITests */,
 			);
@@ -258,12 +258,12 @@
 /* Begin PBXTargetDependency section */
 		919DBFE62E67C11100F34246 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 919DBFD62E67C10F00F34246 /* Magnetometer Toolkit */;
+			target = 919DBFD62E67C10F00F34246 /* Mag Toolkit */;
 			targetProxy = 919DBFE52E67C11100F34246 /* PBXContainerItemProxy */;
 		};
 		919DBFF02E67C11100F34246 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 919DBFD62E67C10F00F34246 /* Magnetometer Toolkit */;
+			target = 919DBFD62E67C10F00F34246 /* Mag Toolkit */;
 			targetProxy = 919DBFEF2E67C11100F34246 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -532,7 +532,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		919DBFF82E67C11100F34246 /* Build configuration list for PBXNativeTarget "Magnetometer Toolkit" */ = {
+		919DBFF82E67C11100F34246 /* Build configuration list for PBXNativeTarget "Mag Toolkit" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				919DBFF92E67C11100F34246 /* Debug */,
