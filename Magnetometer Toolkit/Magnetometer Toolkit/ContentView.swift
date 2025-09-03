@@ -2,7 +2,7 @@
 //  ContentView.swift
 //  Magnetometer Toolkit
 //
-//  Created by Simon Chu on 9/2/25.
+//  Refactor: portrait-first UI, equal cards, and Field Components box
 //
 
 import SwiftUI
@@ -47,19 +47,18 @@ struct ContentView: View {
                 .mono10()
                 .padding(.horizontal, 2)
 
-                // ===== Visualizer Card (auto-range; no slider) =====
+                // ===== Field Visualizer =====
                 MagVisualizer(x: mag.magX, y: mag.magY, z: mag.magZ, totalMag: mag.magnitude)
                     .mono10()
                     .padding()
                     .modifier(CardBackground())
 
-                // Top row: Magnitude + Direction
+                // ===== Field Strength + Compass (equal size) =====
                 HStack(alignment: .center, spacing: 16) {
 
-                    // Magnitude card
+                    // Field Strength card
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Field Strength")
-                            .fontWeight(.semibold)
+                        Text("Field Strength").fontWeight(.semibold)
                         Text(String(format: "%.1f µT", mag.magnitude))
                             .font(.system(size: 28, weight: .bold, design: .monospaced))
                         Text("Active: \(mag.activeMode.rawValue)")
@@ -69,8 +68,9 @@ struct ContentView: View {
                     .mono10()
                     .padding()
                     .modifier(CardBackground())
+                    .frame(maxWidth: .infinity, minHeight: 160)
 
-                    // Direction (heading) card
+                    // Compass card
                     VStack(alignment: .leading, spacing: 8) {
                         ZStack {
                             Circle().stroke(.secondary.opacity(0.3), lineWidth: 1)
@@ -92,41 +92,16 @@ struct ContentView: View {
                     .mono10()
                     .padding()
                     .modifier(CardBackground())
+                    .frame(maxWidth: .infinity, minHeight: 160)
                 }
 
-                // Components card
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Components (µT)").fontWeight(.semibold)
-                    HStack {
-                        labelValue("X", mag.magX)
-                        labelValue("Y", mag.magY)
-                        labelValue("Z", mag.magZ)
-                    }
-                }
-                .mono10()
-                .padding()
-                .modifier(CardBackground())
-
-                // ===== Hints / Help =====
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Hints").fontWeight(.semibold)
-
-                    Group {
-                        if mag.activeMode == .raw {
-                            Text("You’re viewing RAW magnetics. These include constant offsets from nearby magnets (phone/case/laptop) and distortion from metal, so totals can be hundreds of µT.")
-                        } else {
-                            Text("You’re viewing CALIBRATED magnetics. iOS applies bias correction; totals usually sit near the Earth field (≈25–65 µT) when away from metal/magnets.")
-                        }
-                        Text("Axes: X→ right (red), Y↑ top (green), Z ⨂ out of screen (blue). Sign shows direction along each axis.")
-                        Text("Try this: step away from laptops/speakers/cases and watch values settle; bring a magnet near different edges and see X/Y/Z dominance change.")
-                        Text("Simulator note: iOS Simulator may return zeros or unrealistic values; test on device.")
-                    }
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                }
-                .mono10()
-                .padding()
-                .modifier(CardBackground())
+                // ===== Field Components box (like your screenshot) =====
+                FieldComponentsBox(
+                    x: mag.magX,
+                    y: mag.magY,
+                    z: mag.magZ,
+                    total: mag.magnitude
+                )
             }
             .padding(16)
         }
@@ -143,18 +118,10 @@ struct ContentView: View {
 
     // MARK: - Helpers
 
-    private func labelValue(_ label: String, _ value: Double) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label).fontWeight(.semibold)
-            Text(String(format: "%+.1f", value))
-                .font(.system(.title3, design: .monospaced)).monospacedDigit()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
     private func directionLine(degrees: Double, label: String) -> String {
         let d = fmod(degrees + 360, 360)
-        let dirs = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"]
+        let dirs = ["N","NNE","NE","ENE","E","ESE","SE","SSE",
+                    "S","SSW","SW","WSW","W","WNW","NW","NNW"]
         let idx = Int((d/22.5).rounded()) % dirs.count
         return String(format: "%@ Heading: %03.0f° %@", label, d, dirs[idx])
     }
@@ -323,4 +290,101 @@ private struct AxesBadge: View {
         .frame(width: 84, height: 44)
         .modifier(CardBackground())
     }
+}
+
+// ===== Field Components (µT) box =====
+private struct FieldComponentsBox: View {
+    let x: Double
+    let y: Double
+    let z: Double
+    let total: Double   // |B|
+
+    // Symmetric visual range around 0 (auto-expands up to 1000 µT)
+    private var span: Double {
+        max(100, min(1000, max(abs(x), abs(y), abs(z), total) * 1.5))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Field Components (uT)")
+                .fontWeight(.semibold)
+
+            componentRow(label: "X", value: x)
+            componentRow(label: "Y", value: y)
+            componentRow(label: "Z", value: z)
+
+            // |B| disclosure
+            DisclosureGroup("▸ |B|:") {
+                HStack(spacing: 12) {
+                    bar(value: total)
+                    Text(String(format: "%+.2f", total))
+                        .font(.system(.title3, design: .monospaced)).monospacedDigit()
+                        .fontWeight(.semibold)
+                        .foregroundStyle(colorFor(uT: total))
+                }
+                .padding(.top, 4)
+            }
+            .tint(.secondary)
+        }
+        .mono10()
+        .padding()
+        .modifier(CardBackground())
+    }
+
+    // One row like your image: label, bar, value
+    private func componentRow(label: String, value: Double) -> some View {
+        HStack(spacing: 12) {
+            Text(label)
+                .fontWeight(.semibold)
+                .frame(width: 16, alignment: .leading)
+
+            bar(value: value)
+
+            Text(String(format: "%+.2f", value))
+                .font(.system(.title3, design: .monospaced)).monospacedDigit()
+                .fontWeight(.semibold)
+                .foregroundStyle(colorFor(uT: value))
+        }
+    }
+
+    // Center-zero bar with thin middle hairline (fixed)
+    private func bar(value: Double) -> some View {
+        let clamped = max(-span, min(span, value))
+        let frac    = CGFloat(abs(clamped) / span)
+
+        return ZStack {
+            // track
+            RoundedRectangle(cornerRadius: 5)
+                .fill(.secondary.opacity(0.15))
+
+            // fill from center → toward sign of value
+            GeometryReader { g in
+                let W = g.size.width
+                let H = g.size.height
+                let half = W / 2
+                let w = max(2, half * frac)           // width of fill
+                let startX = (value >= 0) ? half : (half - w)
+
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(colorFor(uT: value).opacity(0.85))
+                    .frame(width: w, height: H)
+                    .position(x: startX + w/2, y: H/2) // correct anchor
+            }
+            .clipped()
+
+            // center hairline
+            Rectangle()
+                .fill(.secondary.opacity(0.25))
+                .frame(width: 1)
+        }
+        .frame(height: 10)
+    }
+}
+
+// Threshold coloring (abs value): ≥100 → orange, ≥1000 → red
+private func colorFor(uT: Double) -> Color {
+    let v = abs(uT)
+    if v >= 1000 { return .red }
+    if v >= 100  { return .orange }
+    return .primary
 }
