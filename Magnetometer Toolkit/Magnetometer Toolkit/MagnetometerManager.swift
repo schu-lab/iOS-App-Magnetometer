@@ -1,14 +1,9 @@
-//
-//  MagnetometerManager.swift
-//  Magnetometer Toolkit
-//
-//  Created by Simon Chu on 9/2/25.
-//
 import Foundation
 import CoreMotion
 import CoreLocation
 
 /// Magnetometer + heading manager with switchable RAW / CALIBRATED modes.
+/// Includes serialized mode switching + UI throttling to reduce stalls.
 final class MagnetometerManager: NSObject, ObservableObject, CLLocationManagerDelegate {
 
     // MARK: Data mode
@@ -41,14 +36,27 @@ final class MagnetometerManager: NSObject, ObservableObject, CLLocationManagerDe
     // Calibration info (only when using deviceMotion)
     @Published var calibrationAccuracy: CMMagneticFieldCalibrationAccuracy = .uncalibrated
 
+    // Switching guard
+    @Published var isSwitchingMode: Bool = false
+
     private let motion = CMMotionManager()
     private let loc = CLLocationManager()
-    private let queue: OperationQueue = {
+
+    // Motion callbacks on a serialized queue
+    private let motionQueue: OperationQueue = {
         let q = OperationQueue()
         q.name = "MagnetometerManager.motion"
         q.qualityOfService = .userInitiated
+        q.maxConcurrentOperationCount = 1
         return q
     }()
+
+    // Serialize applyMode and stop/start
+    private let serial = DispatchQueue(label: "MagnetometerManager.serial")
+
+    // UI throttle (~20 Hz publishes to reduce SwiftUI load)
+    private var lastUIStamp: TimeInterval = 0
+    private let minUIInterval: TimeInterval = 1.0 / 20.0
 
     override init() {
         super.init()
@@ -68,21 +76,30 @@ final class MagnetometerManager: NSObject, ObservableObject, CLLocationManagerDe
         stopMagStreams()
     }
 
-    // MARK: Mode switching
+    // MARK: Mode switching (debounced & serialized)
     func applyMode(_ newMode: DataMode) {
-        stopMagStreams()
-        switch newMode {
-        case .calibrated:
-            if motion.isDeviceMotionAvailable {
-                startCalibrated()
-                activeMode = .calibrated
-            } else {
-                startRaw()
-                activeMode = .raw
+        guard !isSwitchingMode else { return }
+        isSwitchingMode = true
+        serial.async { [weak self] in
+            guard let self else { return }
+            self.stopMagStreams()
+            switch newMode {
+            case .calibrated:
+                if self.motion.isDeviceMotionAvailable {
+                    self.startCalibrated()
+                    self.activeMode = .calibrated
+                } else {
+                    self.startRaw()
+                    self.activeMode = .raw
+                }
+            case .raw:
+                self.startRaw()
+                self.activeMode = .raw
             }
-        case .raw:
-            startRaw()
-            activeMode = .raw
+            // brief guard against rapid toggles
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                self.isSwitchingMode = false
+            }
         }
     }
 
@@ -117,41 +134,40 @@ final class MagnetometerManager: NSObject, ObservableObject, CLLocationManagerDe
     // MARK: Magnetics
     /// Calibrated magnetics via CMDeviceMotion (bias-corrected µT)
     private func startCalibrated() {
-        motion.deviceMotionUpdateInterval = 1.0 / 30.0
-        motion.startDeviceMotionUpdates(using: .xArbitraryCorrectedZVertical, to: queue) { [weak self] dm, _ in
+        motion.deviceMotionUpdateInterval = 1.0 / 20.0 // 20 Hz
+        motion.startDeviceMotionUpdates(using: .xArbitraryCorrectedZVertical, to: motionQueue) { [weak self] dm, _ in
             guard let self, let dm else { return }
             let f = dm.magneticField
             self.calibrationAccuracy = f.accuracy
             let x = f.field.x, y = f.field.y, z = f.field.z
             let mag = sqrt(x*x + y*y + z*z)
-            DispatchQueue.main.async {
-                self.magX = x; self.magY = y; self.magZ = z; self.magnitude = mag
-            }
+            self.dispatchUI(x: x, y: y, z: z, mag: mag)
         }
     }
 
     /// RAW magnetics via CMMotionManager (uncorrected µT; includes hard/soft-iron effects)
     private func startRaw() {
         guard motion.isMagnetometerAvailable else { return }
-        motion.magnetometerUpdateInterval = 1.0 / 30.0
-        motion.startMagnetometerUpdates(to: queue) { [weak self] data, _ in
+        motion.magnetometerUpdateInterval = 1.0 / 20.0 // 20 Hz
+        motion.startMagnetometerUpdates(to: motionQueue) { [weak self] data, _ in
             guard let self, let m = data?.magneticField else { return }
             let x = m.x, y = m.y, z = m.z
             let mag = sqrt(x*x + y*y + z*z)
-            DispatchQueue.main.async {
-                self.magX = x; self.magY = y; self.magZ = z; self.magnitude = mag
-            }
+            self.dispatchUI(x: x, y: y, z: z, mag: mag)
+        }
+    }
+
+    // Throttle main-thread publishes to ~20 Hz to avoid UI stalls when toggling
+    private func dispatchUI(x: Double, y: Double, z: Double, mag: Double) {
+        let now = CFAbsoluteTimeGetCurrent()
+        if now - lastUIStamp < minUIInterval { return }
+        lastUIStamp = now
+        DispatchQueue.main.async {
+            self.magX = x; self.magY = y; self.magZ = z; self.magnitude = mag
         }
     }
 
     // MARK: Convenience
     var angleXY: Double { atan2(magY, magX) }
     var magnitudeXY: Double { sqrt(magX*magX + magY*magY) }
-
-    func cardinal(from degrees: Double) -> String {
-        let dirs = ["N","NNE","NE","ENE","E","ESE","SE","SSE",
-                    "S","SSW","SW","WSW","W","WNW","NW","NNW"]
-        let idx = Int((degrees/22.5).rounded()) % dirs.count
-        return dirs[idx]
-    }
 }
