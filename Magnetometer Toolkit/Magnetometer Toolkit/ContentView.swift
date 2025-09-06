@@ -14,125 +14,63 @@ struct ContentView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-
-                    // Title row: Icon + title (left) ... XYZ badge (right)
+            VStack(spacing: 0) {
+                // ===== Header row =====
+                HStack(spacing: 12) {
                     HStack(spacing: 12) {
-                        HStack(spacing: 12) {
-                            Image("Icon-DEV")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 32, height: 32)
-                                .clipShape(RoundedRectangle(cornerRadius: 6))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .stroke(.secondary.opacity(0.4), lineWidth: 0.5)
-                                )
-                            Text("Mag Toolbox").monoTitle()
-                        }
-                        Spacer()
-                        AxesBadge()
+                        Image("Icon-DEV")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 32, height: 32)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(.secondary.opacity(0.4), lineWidth: 0.5)
+                            )
+                        Text("Mag Toolbox").monoTitle()
                     }
-
-                    // Mode picker (Calibrated / Raw)
-                    HStack {
-                        Text("Mode").fontWeight(.semibold)
-                        Picker("Mode", selection: $mag.mode) {
-                            ForEach(MagnetometerManager.DataMode.allCases) { m in
-                                Text(m.rawValue).tag(m)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                    }
-                    .mono10()
-                    .padding(.horizontal, 2)
-
-                    // ===== Field Visualizer ===== (no copy icon here)
-                    MagVisualizer(
-                        x: mag.magX, y: mag.magY, z: mag.magZ,
-                        totalMag: mag.magnitude,
-                        utcNow: utcNow
-                    )
-                    .mono10()
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .modifier(CardBackground())
-
-                    // ===== Field Strength + Compass =====
-                    HStack(alignment: .center, spacing: 16) {
-
-                        // Field Strength — title top-left + Copy button (trailing)
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text("Field Strength").fontWeight(.semibold)
-                                Spacer()
-                                Button {
-                                    copyFieldStrength(total: mag.magnitude, date: utcNow)
-                                    triggerToast("Copied field strength")
-                                } label: {
-                                    Image(systemName: "doc.on.doc").imageScale(.medium)
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel("Copy Field Strength")
-                            }
-
-                            Text(String(format: "%.1f µT", mag.magnitude))
-                                .font(.system(size: 30, weight: .bold, design: .monospaced))
-
-                            Text("Active: \(mag.activeMode.rawValue)")
-                                .foregroundStyle(.secondary)
-                                .font(.caption)
-                        }
-                        .mono10()
-                        .padding()
-                        .frame(maxWidth: .infinity, minHeight: 180)
-                        .modifier(CardBackground())
-
-                        // Compass — title top-left
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Compass").fontWeight(.semibold)
-
-                            ZStack {
-                                Circle().stroke(.secondary.opacity(0.3), lineWidth: 1)
-                                Image(systemName: "location.north.line.fill")
-                                    .rotationEffect(.degrees(-mag.magneticHeading))
-                                    .font(.system(size: 32, weight: .bold))
-                            }
-                            .frame(width: 84, height: 84)
-
-                            let deg = mag.trueHeading ?? mag.magneticHeading
-                            Text(directionLine(degrees: deg, label: mag.trueHeading != nil ? "True" : "Mag"))
-                                .fontWeight(.semibold)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
-
-                            if mag.headingAccuracy > 0 {
-                                Text(String(format: "± %.0f°", mag.headingAccuracy))
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .mono10()
-                        .padding()
-                        .frame(maxWidth: .infinity, minHeight: 180)
-                        .modifier(CardBackground())
-                    }
-
-                    // ===== Field Components =====
-                    FieldComponentsBox(
-                        x: mag.magX, y: mag.magY, z: mag.magZ,
-                        total: mag.magnitude, utcNow: utcNow
-                    ) {
-                        // onCopy callback: centralize toast here
-                        triggerToast("Copied components")
-                    }
-
-                    // ===== Hint Cards =====
-                    HintCards()
-                        .mono10()
-                        .padding(.top, 4)
+                    Spacer()
+                    AxesBadge()
                 }
-                .padding(16)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+
+                // ===== Global Mode picker (applies to all tabs) =====
+                HStack {
+                    Text("Mode").fontWeight(.semibold)
+                    Picker("Mode", selection: $mag.mode) {
+                        ForEach(MagnetometerManager.DataMode.allCases) { m in
+                            Text(m.rawValue).tag(m)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                .mono10()
+                .padding(.horizontal, 18)
+                .padding(.top, 8)
+                .padding(.bottom, 6)
+
+                // ===== Tabs =====
+                TabView {
+                    // --- Visualizer / Components tab ---
+                    VisualizerTab(
+                        mag: mag,
+                        utcNow: utcNow,
+                        onCopied: { triggerToast("Copied components") }
+                    )
+                    .tabItem { Label("Visualizer", systemImage: "dot.radiowaves.left.and.right") }
+
+                    // --- Compass tab ---
+                    CompassTab(
+                        mag: mag,
+                        utcNow: utcNow,
+                        onCopyStrength: {
+                            copyFieldStrength(total: mag.magnitude, date: utcNow)
+                            triggerToast("Copied field strength")
+                        }
+                    )
+                    .tabItem { Label("Compass", systemImage: "location.north.line") }
+                }
             }
 
             // Centralized toast at the very top
@@ -149,9 +87,12 @@ struct ContentView: View {
             mag.applyMode(mag.mode)
         }
         .onDisappear { mag.stop() }
-        .onChange(of: mag.mode) { newMode in
+
+        // iOS 17+ onChange API (with fallback for iOS 16)
+        .modifier(OnChangeMode(mode: $mag.mode) { newMode in
             mag.applyMode(newMode)
-        }
+        })
+
         .mono10()
     }
 
@@ -159,7 +100,7 @@ struct ContentView: View {
     private func copyFieldStrength(total: Double, date: Date) {
         let text = """
         Magnetometer — Field Strength
-        UTC: \(utcTimeString(date))
+        UTC: \(Maff.utcString(date))
         |B|: \(String(format: "%.3f", total)) µT
         """
         UIPasteboard.general.string = text
@@ -177,6 +118,117 @@ struct ContentView: View {
             }
         }
     }
+}
+
+#Preview { ContentView() }
+
+// ===========================================================
+// Tabs
+// ===========================================================
+
+private struct VisualizerTab: View {
+    @ObservedObject var mag: MagnetometerManager
+    let utcNow: Date
+    let onCopied: () -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                // ===== Field Visualizer =====
+                MagVisualizer(
+                    x: mag.magX, y: mag.magY, z: mag.magZ,
+                    totalMag: mag.magnitude,
+                    utcNow: utcNow
+                )
+                .mono10()
+                .padding()
+                .frame(maxWidth: .infinity)
+                .modifier(CardBackground())
+
+                // ===== Field Components =====
+                FieldComponentsBox(
+                    x: mag.magX, y: mag.magY, z: mag.magZ,
+                    total: mag.magnitude, utcNow: utcNow,
+                    onCopied: onCopied
+                )
+
+                // ===== Hints (now included so it compiles) =====
+                HintCards()
+                    .mono10()
+                    .padding(.top, 4)
+            }
+            .padding(16)
+        }
+    }
+}
+
+private struct CompassTab: View {
+    @ObservedObject var mag: MagnetometerManager
+    let utcNow: Date
+    let onCopyStrength: () -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .center, spacing: 16) {
+
+                    // Field Strength card
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Field Strength").fontWeight(.semibold)
+                            Spacer()
+                            Button(action: onCopyStrength) {
+                                Image(systemName: "doc.on.doc").imageScale(.medium)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Copy Field Strength")
+                        }
+
+                        Text(String(format: "%.1f µT", mag.magnitude))
+                            .font(.system(size: 30, weight: .bold, design: .monospaced))
+
+                        Text("Active: \(mag.activeMode.rawValue)")
+                            .foregroundStyle(.secondary)
+                            .font(.caption)
+                    }
+                    .mono10()
+                    .padding()
+                    .frame(maxWidth: .infinity, minHeight: 180)
+                    .modifier(CardBackground())
+
+                    // Compass card
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Compass").fontWeight(.semibold)
+
+                        ZStack {
+                            Circle().stroke(.secondary.opacity(0.3), lineWidth: 1)
+                            Image(systemName: "location.north.line.fill")
+                                .rotationEffect(.degrees(-mag.magneticHeading))
+                                .font(.system(size: 32, weight: .bold))
+                        }
+                        .frame(width: 84, height: 84)
+
+                        let deg = mag.trueHeading ?? mag.magneticHeading
+                        Text(directionLine(degrees: deg, label: mag.trueHeading != nil ? "True" : "Mag"))
+                            .fontWeight(.semibold)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+
+                        if mag.headingAccuracy > 0 {
+                            Text(String(format: "± %.0f°", mag.headingAccuracy))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .mono10()
+                    .padding()
+                    .frame(maxWidth: .infinity, minHeight: 180)
+                    .modifier(CardBackground())
+                }
+                .padding(.top, 10)
+            }
+            .padding(16)
+        }
+    }
 
     // MARK: - Helpers
     private func directionLine(degrees: Double, label: String) -> String {
@@ -186,19 +238,10 @@ struct ContentView: View {
         let idx = Int((d/22.5).rounded()) % dirs.count
         return String(format: "%@ %@ (%03.0f°)", label, dirs[idx], d)
     }
-
-    private func utcTimeString(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.timeZone = TimeZone(abbreviation: "UTC")
-        f.dateFormat = "yyyy-MM-dd HH:mm:ss 'UTC'"
-        return f.string(from: date)
-    }
 }
 
-#Preview { ContentView() }
-
 // ===========================================================
-// Reuse components below
+// Reuse components (unchanged)
 // ===========================================================
 
 private struct CardBackground: ViewModifier {
@@ -214,7 +257,7 @@ private struct CardBackground: ViewModifier {
     }
 }
 
-// ===== Visualizer View (title + UTC time on the SAME line) =====
+// ===== Visualizer View =====
 private struct MagVisualizer: View {
     let x: Double
     let y: Double
@@ -226,11 +269,10 @@ private struct MagVisualizer: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            // Header line: title (left) + UTC (right)
             HStack {
                 Text("Field Visualizer").fontWeight(.semibold)
                 Spacer()
-                Text(utcTimeString(utcNow))
+                Text(Maff.utcString(utcNow))
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundStyle(.secondary)
             }
@@ -263,7 +305,6 @@ private struct MagVisualizer: View {
                     )
                     .stroke(.primary, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                 }
-                // Telemetry at the bottom
                 .overlay(alignment: .bottom) {
                     VStack(spacing: 2) {
                         Text(String(format: "XY: %.1f µT", xyMag))
@@ -291,13 +332,6 @@ private struct MagVisualizer: View {
         let biggest = max(magnitudeXY, abs(z), totalMag)
         let candidate = min(200.0, max(20.0, biggest * 1.3))
         scaleMax = 0.9 * scaleMax + 0.1 * candidate
-    }
-
-    private func utcTimeString(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.timeZone = TimeZone(abbreviation: "UTC")
-        f.dateFormat = "yyyy-MM-dd HH:mm:ss 'UTC'"
-        return f.string(from: date)
     }
 }
 
@@ -457,11 +491,7 @@ private struct FieldComponentsBox: View {
     }
 
     private func copyComponents() {
-        let f = DateFormatter()
-        f.timeZone = TimeZone(abbreviation: "UTC")
-        f.dateFormat = "yyyy-MM-dd HH:mm:ss 'UTC'"
-        let timestamp = f.string(from: utcNow)
-
+        let timestamp = Maff.utcString(utcNow)
         let text = """
         Magnetometer — Field Components
         UTC: \(timestamp)
@@ -510,7 +540,7 @@ private struct HintCards: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Hints").fontWeight(.semibold)
 
-            DisclosureGroup("▸ Calibrated vs Raw") {
+            DisclosureGroup("▸ Calibrated vs Raw Values") {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("• Calibrated: Uses iOS Core Motion (Apple’s sensor-fusion framework) to correct bias/scale from the raw magnetometer and combine it with gyro/accelerometer for a steadier reading.")
                     Text("• Raw: Direct sensor output without bias/soft-iron correction. More sensitive to nearby metal, wiring, and magnets.")
@@ -520,7 +550,7 @@ private struct HintCards: View {
             }
             .tint(.secondary)
 
-            DisclosureGroup("▸ How and why the magnetometer works") {
+            DisclosureGroup("▸ Magnetometer Fundementals") {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("• Measures the 3-axis magnetic field (X, Y, Z) in microtesla (µT). Total |B| = √(X²+Y²+Z²).")
                     Text("• Why it matters: Earth’s magnetic field gives an absolute reference for yaw (heading). Gyros drift; magnetometers anchor heading, especially when GPS heading is unreliable at low speeds.")
@@ -530,7 +560,7 @@ private struct HintCards: View {
             }
             .tint(.secondary)
 
-            DisclosureGroup("▸ Calibration tips (drones & devices)") {
+            DisclosureGroup("▸ Calibration Tips") {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("• Perform the platform’s compass/magnetometer calibration routine outdoors, away from concrete, vehicles, rebar, and power lines.")
                     Text("• Move through figure-8s and rotate slowly on all axes; follow your flight controller or device prompts until success.")
@@ -541,7 +571,7 @@ private struct HintCards: View {
             }
             .tint(.secondary)
 
-            DisclosureGroup("▸ Common magnetometer issues") {
+            DisclosureGroup("▸ Common Magnetometer Issues") {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("• Hard/soft-iron interference from screws, frames, speakers, or magnets (including phone/tablet cases).")
                     Text("• Electrical noise/saturation from ESCs and power cables; indoor metal structures causing inconsistent headings.")
@@ -551,7 +581,7 @@ private struct HintCards: View {
             }
             .tint(.secondary)
 
-            DisclosureGroup("▸ Fixes and mitigations") {
+            DisclosureGroup("▸ Fixes and Mitigations") {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("• Relocate or elevate the sensor; use an external compass module away from motors/ESCs.")
                     Text("• Twist high-current wires, add ferrite rings, keep magnets out of mounts/cases; replace steel hardware with non-magnetic where feasible.")
@@ -562,7 +592,7 @@ private struct HintCards: View {
             }
             .tint(.secondary)
 
-            DisclosureGroup("▸ Units & thresholds") {
+            DisclosureGroup("▸ Units & Thresholds") {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("• Readings are in µT. Typical Earth field is about 25–65 µT depending on location.")
                     Text("• In this app: ≥100 µT shows orange, ≥1000 µT shows red as high-field indicators.")
@@ -574,5 +604,18 @@ private struct HintCards: View {
         .padding()
         .frame(maxWidth: .infinity)
         .modifier(CardBackground())
+    }
+}
+
+// ===== iOS17 onChange shim =====
+private struct OnChangeMode: ViewModifier {
+    @Binding var mode: MagnetometerManager.DataMode
+    var perform: (MagnetometerManager.DataMode) -> Void
+    func body(content: Content) -> some View {
+        if #available(iOS 17, *) {
+            content.onChange(of: mode, initial: false) { _, new in perform(new) }
+        } else {
+            content.onChange(of: mode) { new in perform(new) }
+        }
     }
 }
